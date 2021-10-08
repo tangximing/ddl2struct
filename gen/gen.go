@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"bytes"
 	"fmt"
 	"go/format"
 	"io/ioutil"
@@ -60,22 +61,20 @@ func generate(absSqlFile string, absDir string, packageName string) (err error) 
 		return
 	}
 
-	structs, err := p.ToStructs()
-	if err != nil {
-		err = errors.Wrapf(err, "p.ToStructs")
-		return
-	}
-	for tableName, structData := range structs {
-		goData := fmt.Sprintf("package %s\n%s", packageName, string(structData))
-		goDataBytes, e := format.Source([]byte(goData))
+	structs := p.ToStructs()
+	for name, goStruct := range structs {
+		bs := new(bytes.Buffer)
+		bs.WriteString(fmt.Sprintf("package %s\n", packageName))
+		bs.WriteString(goStruct.ToGo())
+		goBytes, e := format.Source(bs.Bytes())
 		if e != nil {
 			err = errors.Wrapf(e, "format.Source")
 			return
 		}
 
-		goFileName := fmt.Sprintf("%s.go", strcase.ToSnake(tableName))
+		goFileName := fmt.Sprintf("%s.go", strcase.ToSnake(name))
 		goFile := filepath.Join(absDir, goFileName)
-		e = ioutil.WriteFile(goFile, goDataBytes, 0644)
+		e = ioutil.WriteFile(goFile, goBytes, 0644)
 		if e != nil {
 			err = errors.Wrapf(e, "ioutil.WriteFile")
 			return
