@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
+	"github.com/pingcap/parser/mysql"
 
 	"github.com/pingcap/parser"
 	"github.com/pingcap/parser/ast"
@@ -14,9 +15,9 @@ import (
 )
 
 type Parser struct {
-	p  *parser.Parser
-	ts []table
+	p *parser.Parser
 
+	ts  []table
 	err error
 }
 
@@ -74,7 +75,7 @@ func (p *Parser) parseCreateTableStmt(stmt *ast.CreateTableStmt) (err error) {
 	for _, col := range stmt.Cols {
 		t.columns = append(t.columns, column{
 			name:  col.Name.Name.String(),
-			cType: getColumnType(col.Tp.EvalType()),
+			cType: getColumnType(col.Tp),
 		})
 	}
 
@@ -82,9 +83,13 @@ func (p *Parser) parseCreateTableStmt(stmt *ast.CreateTableStmt) (err error) {
 	return
 }
 
-func getColumnType(cType types.EvalType) string {
-	switch cType {
+func getColumnType(cType *types.FieldType) string {
+	evalType := cType.EvalType()
+	switch evalType {
 	case types.ETInt:
+		if cType.Tp == mysql.TypeLonglong {
+			return "int64"
+		}
 		return "int"
 	case types.ETReal, types.ETDecimal:
 		return "float64"
